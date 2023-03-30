@@ -12,6 +12,7 @@ import {
   loadBlocks,
   loadCSS,
 } from './lib-franklin.js';
+import { setupAnalyticsTrackingWithAlloy } from './lib-analytics.js';
 
 const LCP_BLOCKS = []; // add your LCP blocks to the list
 window.hlx.RUM_GENERATION = 'project-1'; // add your RUM generation information here
@@ -125,7 +126,9 @@ function loadDelayed() {
 async function loadPage() {
   await loadEager(document);
   await loadLazy(document);
+  const setupAnalytics = setupAnalyticsTrackingWithAlloy(document);
   loadDelayed();
+  await setupAnalytics;
 }
 
 loadPage();
