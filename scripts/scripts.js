@@ -12,6 +12,11 @@ import {
   loadBlocks,
   loadCSS,
 } from './lib-franklin.js';
+import {
+  loadLaunch,
+  loadAlloyInit,
+  analyticsTrackPageViews,
+} from './lib-analytics.js';
 
 const LCP_BLOCKS = []; // add your LCP blocks to the list
 window.hlx.RUM_GENERATION = 'project-1'; // add your RUM generation information here
@@ -90,15 +95,6 @@ export function addFavIcon(href) {
   }
 }
 
-function loadLaunch() {
-  const body = document.querySelector('body');
-  const script = document.createElement('script');
-  script.src = 'https://assets.adobedtm.com/51b39232f128/454afdc4eafe/launch-4ca876cfa7c7-development.min.js';
-  script.setAttribute('type', 'text/javascript');
-  script.async = true;
-  body.appendChild(script);
-}
-
 /**
  * Loads everything that doesn't need to be delayed.
  * @param {Element} doc The container element
@@ -120,7 +116,7 @@ async function loadLazy(doc) {
   sampleRUM.observe(main.querySelectorAll('div[data-block-name]'));
   sampleRUM.observe(main.querySelectorAll('picture > img'));
 
-  loadLaunch();
+  loadLaunch(() => analyticsTrackPageViews(document));
 }
 
 /**
