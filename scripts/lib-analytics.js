@@ -19,7 +19,9 @@ const CUSTOM_SCHEMA_NAMESPACE = '_sitesinternal';
 export function loadLaunch(callback) {
   const body = document.querySelector('body');
   const script = document.createElement('script');
-  script.src = 'https://assets.adobedtm.com/51b39232f128/454afdc4eafe/launch-4ca876cfa7c7-development.min.js';
+  // script.src =
+  // 'https://assets.adobedtm.com/51b39232f128/454afdc4eafe/launch-4ca876cfa7c7-development.min.js';
+  script.src = 'https://assets.adobedtm.com/51b39232f128/454afdc4eafe/launch-9bb6b7204328-development.min.js';
   script.setAttribute('type', 'text/javascript');
   script.async = true;
   if (callback) {
@@ -70,7 +72,7 @@ export async function analyticsTrackPageViews(document, additionalXdmFields = {}
           pageViews: {
             value: 1,
           },
-          pageName: `${document.title}`,
+          name: `${document.title}`,
         },
       },
       [CUSTOM_SCHEMA_NAMESPACE]: {
