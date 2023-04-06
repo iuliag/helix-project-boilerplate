@@ -21,13 +21,16 @@ export function loadLaunch(callback) {
   const script = document.createElement('script');
   // script.src =
   // 'https://assets.adobedtm.com/51b39232f128/454afdc4eafe/launch-4ca876cfa7c7-development.min.js';
+
   // page view rule
   // script.src =
   // 'https://assets.adobedtm.com/51b39232f128/454afdc4eafe/launch-9bb6b7204328-development.min.js';
+
   // data layer extension
   script.src = 'https://assets.adobedtm.com/51b39232f128/454afdc4eafe/launch-a31cafe545c8-development.min.js';
-  script.setAttribute('type', 'text/javascript');
-  script.async = true;
+
+  script.setAttribute('type', 'text/partytown');
+  // script.async = true;
   if (callback) {
     script.onload = callback;
   }

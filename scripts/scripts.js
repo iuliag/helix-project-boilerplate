@@ -95,6 +95,14 @@ export function addFavIcon(href) {
   }
 }
 
+function initPartytown() {
+  window.partytown = {
+    lib: '/scripts/',
+    forward: ['adobeDataLayer.push'],
+  };
+  import('./partytown.js');
+}
+
 /**
  * Loads everything that doesn't need to be delayed.
  * @param {Element} doc The container element
@@ -118,6 +126,8 @@ async function loadLazy(doc) {
 
   // loadLaunch(() => analyticsTrackPageViews(document));
   loadLaunch();
+
+  initPartytown();
 
   // faking a data layer change
   if (!window.adobeDataLayer) {
