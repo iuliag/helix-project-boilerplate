@@ -27,7 +27,7 @@ export function loadLaunch(callback) {
   // 'https://assets.adobedtm.com/51b39232f128/454afdc4eafe/launch-9bb6b7204328-development.min.js';
 
   // data layer extension
-  script.src = 'https://assets.adobedtm.com/51b39232f128/454afdc4eafe/launch-a31cafe545c8-development.min.js';
+  script.src = 'https://tracker.ekremney.workers.dev/?thirdPartyTracker=https://assets.adobedtm.com/51b39232f128/454afdc4eafe/launch-a31cafe545c8-development.min.js';
 
   script.setAttribute('type', 'text/partytown');
   // script.async = true;
