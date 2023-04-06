@@ -130,9 +130,6 @@ async function loadLazy(doc) {
   initPartytown();
 
   // faking a data layer change
-  if (!window.adobeDataLayer) {
-    window.adobeDataLayer = {};
-  }
   window.adobeDataLayer.push({
     event: 'Form Complete',
     eventInfo: {
