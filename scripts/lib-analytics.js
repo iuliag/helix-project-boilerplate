@@ -142,7 +142,7 @@ export async function analyticsTrackPageViews(document, additionalXdmFields = {}
           pageViews: {
             value: 1,
           },
-          pageName: `${document.title}`,
+          name: `${document.title}`,
         },
       },
       [CUSTOM_SCHEMA_NAMESPACE]: {
