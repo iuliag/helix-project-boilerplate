@@ -14,8 +14,6 @@ import {
 } from './lib-franklin.js';
 import {
   loadLaunch,
-  loadAlloyInit,
-  analyticsTrackPageViews,
 } from './lib-analytics.js';
 
 const LCP_BLOCKS = []; // add your LCP blocks to the list
@@ -118,23 +116,6 @@ async function loadLazy(doc) {
 
   // loadLaunch(() => analyticsTrackPageViews(document));
   loadLaunch();
-
-  // faking a data layer change
-  if (!window.adobeDataLayer) {
-    window.adobeDataLayer = [];
-  }
-  window.adobeDataLayer.push({
-    event: 'Form Complete',
-    eventInfo: {
-      form: {
-        formId: '12345',
-      },
-      experiment: {
-        experimentId: 'pricing',
-        experimentVariant: 'challenger-1',
-      },
-    },
-  });
 }
 
 /**
