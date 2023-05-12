@@ -10,6 +10,9 @@
  * governing permissions and limitations under the License.
  */
 
+// eslint-disable-next-line import/no-cycle
+import { getMetadata } from './lib-franklin.js';
+
 /**
  * Customer's XDM schema namespace
  * @type {string}
@@ -64,9 +67,15 @@ function getDatastreamConfiguration() {
  */
 function enhanceAnalyticsEvent(options) {
   const experiment = getExperimentDetails();
+
+  const brand = getMetadata('brand');
+  const allMetadata = getMetadata();
+  console.log('all metadata: ', allMetadata);
+
   options.xdm[CUSTOM_SCHEMA_NAMESPACE] = {
     ...options.xdm[CUSTOM_SCHEMA_NAMESPACE],
     ...(experiment ? { experiment } : {}), // add experiment details, if existing, to all events
+    ...(brand ? { brand } : {}),
   };
   console.debug(`enhanceAnalyticsEvent complete: ${JSON.stringify(options)}`);
 }

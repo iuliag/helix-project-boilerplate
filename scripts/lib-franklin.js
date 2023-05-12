@@ -10,8 +10,6 @@
  * governing permissions and limitations under the License.
  */
 
-import { analyticsTrackFormSubmission, analyticsTrackLinkClicks } from './lib-analytics.js';
-
 /**
  * log RUM if part of the sample.
  * @param {string} checkpoint identifies the checkpoint in funnel
