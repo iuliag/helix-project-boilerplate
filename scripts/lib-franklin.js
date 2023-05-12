@@ -10,6 +10,8 @@
  * governing permissions and limitations under the License.
  */
 
+import { analyticsTrackFormSubmission, analyticsTrackLinkClicks } from './lib-analytics.js';
+
 /**
  * log RUM if part of the sample.
  * @param {string} checkpoint identifies the checkpoint in funnel
@@ -28,9 +30,12 @@ export function sampleRUM(checkpoint, data = {}) {
         .filter(({ fnname }) => dfnname === fnname)
         .forEach(({ fnname, args }) => sampleRUM[fnname](...args));
     });
+  sampleRUM.always = sampleRUM.always || [];
+  sampleRUM.always.on = (chkpnt, fn) => { sampleRUM.always[chkpnt] = fn; };
   sampleRUM.on = (chkpnt, fn) => { sampleRUM.cases[chkpnt] = fn; };
   defer('observe');
   defer('cwv');
+  defer('convert');
   try {
     window.hlx = window.hlx || {};
     if (!window.hlx.rum) {
@@ -48,7 +53,7 @@ export function sampleRUM(checkpoint, data = {}) {
     if (window.hlx && window.hlx.rum && window.hlx.rum.isSelected) {
       const sendPing = (pdata = data) => {
         // eslint-disable-next-line object-curly-newline, max-len, no-use-before-define
-        const body = JSON.stringify({ weight, id, referer: window.location.href, generation: window.hlx.RUM_GENERATION, checkpoint, ...data });
+        const body = JSON.stringify({ weight, id, referer: window.location.href, generation: window.hlx.RUM_GENERATION, checkpoint, ...data }, (key, value) => (key === 'element' ? undefined : value));
         const url = `https://rum.hlx.page/.rum/${weight}`;
         // eslint-disable-next-line no-unused-expressions
         navigator.sendBeacon(url, body);
@@ -68,6 +73,7 @@ export function sampleRUM(checkpoint, data = {}) {
       sendPing(data);
       if (sampleRUM.cases[checkpoint]) { sampleRUM.cases[checkpoint](); }
     }
+    if (sampleRUM.always[checkpoint]) { sampleRUM.always[checkpoint](data); }
   } catch (error) {
     // something went wrong
   }
@@ -306,8 +312,9 @@ export function decorateSections(main) {
       const meta = readBlockConfig(sectionMeta);
       Object.keys(meta).forEach((key) => {
         if (key === 'style') {
-          const styles = meta.style.split(',').map((style) => toClassName(style.trim()));
-          styles.forEach((style) => section.classList.add(style));
+          section.classList.add(...meta.style.split(', ').map(toClassName));
+        } else if (key === 'anchor') {
+          section.id = toClassName(meta.anchor);
         } else {
           section.dataset[toCamelCase(key)] = meta[key];
         }
@@ -571,11 +578,11 @@ export async function waitForLCP(lcpBlocks) {
  * @param {Element} header header element
  * @returns {Promise}
  */
-export function loadHeader(header) {
+export async function loadHeader(header) {
   const headerBlock = buildBlock('header', '');
   header.append(headerBlock);
   decorateBlock(headerBlock);
-  return loadBlock(headerBlock);
+  await loadBlock(headerBlock);
 }
 
 /**
@@ -607,6 +614,94 @@ export function setup() {
       console.log(error);
     }
   }
+}
+
+/**
+ * Returns the label used for tracking link clicks
+ * @param {Element} element link element
+ * @returns link label used for tracking converstion
+ */
+function getLinkLabel(element) {
+  return element.title ? toClassName(element.title) : toClassName(element.textContent);
+}
+
+function findConversionValue(parent, fieldName) {
+  // Try to find the element by Id or Name
+  const valueElement = document.getElementById(fieldName) || parent.querySelector(`[name='${fieldName}']`);
+  if (valueElement) {
+    return valueElement.value;
+  }
+  // Find the element by the inner text of the label
+  return Array.from(parent.getElementsByTagName('label'))
+    .filter((l) => l.innerText.trim().toLowerCase() === fieldName.toLowerCase())
+    .map((label) => document.getElementById(label.htmlFor))
+    .filter((field) => !!field)
+    .map((field) => field.value)
+    .pop();
+}
+
+/**
+ * Registers conversion listeners according to the metadata configured in the document.
+ * @param {Element} parent element where to find potential event conversion sources
+ * @param {string} path fragment path when the parent element is coming from a fragment
+ */
+export async function initConversionTracking(parent, path) {
+  const conversionElements = {
+    form: () => {
+      // Track all forms
+      parent.querySelectorAll('form').forEach((element) => {
+        const section = element.closest('div.section');
+        if (section.dataset.conversionValueField) {
+          const cvField = section.dataset.conversionValueField.trim();
+          // this will track the value of the element with the id
+          // specified in the "Conversion Element" field.
+          // ideally, this should not be an ID, but the case-insensitive name label of the element.
+          sampleRUM.convert(undefined, (cvParent) => findConversionValue(cvParent, cvField), element, ['submit']);
+        }
+        const formConversionName = section.dataset.conversionName || getMetadata('conversion-name');
+        if (formConversionName) {
+          sampleRUM.convert(formConversionName, undefined, element, ['submit']);
+        } else {
+          // if no conversion name is specified, use the form path or id
+          sampleRUM.convert(path ? toClassName(path) : element.id, undefined, element, ['submit']);
+        }
+      });
+    },
+    link: () => {
+      // track all links
+      Array.from(parent.querySelectorAll('a[href]'))
+        .map((element) => ({
+          element,
+          cevent: getMetadata(`conversion-name--${getLinkLabel(element)}-`) || getMetadata('conversion-name') || getLinkLabel(element),
+        }))
+        .forEach(({ element, cevent }) => {
+          sampleRUM.convert(cevent, undefined, element, ['click']);
+        });
+    },
+    'labeled-link': () => {
+      // track only the links configured in the metadata
+      const linkLabels = getMetadata('conversion-link-labels') || '';
+      const trackedLabels = linkLabels.split(',')
+        .map((p) => p.trim())
+        .map(toClassName);
+
+      Array.from(parent.querySelectorAll('a[href]'))
+        .filter((element) => trackedLabels.includes(getLinkLabel(element)))
+        .map((element) => ({
+          element,
+          cevent: getMetadata(`conversion-name--${getLinkLabel(element)}-`) || getMetadata('conversion-name') || getLinkLabel(element),
+        }))
+        .forEach(({ element, cevent }) => {
+          sampleRUM.convert(cevent, undefined, element, ['click']);
+        });
+    },
+  };
+
+  const declaredConversionElements = getMetadata('conversion-element') ? getMetadata('conversion-element').split(',').map((ce) => toClassName(ce.trim())) : [];
+
+  Object.keys(conversionElements)
+    .filter((ce) => declaredConversionElements.includes(ce))
+    .forEach((cefn) => conversionElements[cefn]());
 }
 
 /**
