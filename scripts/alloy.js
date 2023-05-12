@@ -1470,6 +1470,67 @@
   OF ANY KIND, either express or implied. See the License for the specific language
   governing permissions and limitations under the License.
   */
+  /**
+   * Returns whether the value is an empty object.
+   * @param {*} value
+   * @returns {boolean}
+   */
+
+  var isEmptyObject = (function (value) {
+    return isObject(value) && Object.keys(value).length === 0;
+  });
+
+  /**
+   * Given an object and a function that takes a value and returns a predicate, filter out
+   * all non-object deeply nested values that do not pass the predicate.
+   *
+   * Example: filterObject({ a: 2, b: { c: 6 } }, (val) => val > 5) returns { b { c: 6 } }
+   *
+   * @param {*} obj
+   * @param {* => boolean} predicate a function that takes a value and return a boolean,
+   * representing if it should be included in the result object or not.
+   * @returns A copy of the original object with the values that fail the predicate, filtered out.
+   */
+
+  var filterObject = function filterObject(obj, predicate) {
+    if (isNil(obj) || !isObject(obj)) {
+      return obj;
+    }
+
+    return Object.keys(obj).reduce(function (result, key) {
+      var value = obj[key];
+
+      if (isObject(value)) {
+        // value is object, go deeper
+        var filteredValue = filterObject(value, predicate);
+
+        if (isEmptyObject(filteredValue)) {
+          return result;
+        }
+
+        return _objectSpread2(_objectSpread2({}, result), {}, _defineProperty({}, key, filteredValue));
+      } // value is not an object, test predicate
+
+
+      if (predicate(value)) {
+        return _objectSpread2(_objectSpread2({}, result), {}, _defineProperty({}, key, value));
+      }
+
+      return result;
+    }, {});
+  };
+
+  /*
+  Copyright 2019 Adobe. All rights reserved.
+  This file is licensed to you under the Apache License, Version 2.0 (the "License");
+  you may not use this file except in compliance with the License. You may obtain a copy
+  of the License at http://www.apache.org/licenses/LICENSE-2.0
+
+  Unless required by applicable law or agreed to in writing, software distributed under
+  the License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR REPRESENTATIONS
+  OF ANY KIND, either express or implied. See the License for the specific language
+  governing permissions and limitations under the License.
+  */
   var flatMap = (function (array, mapFunction) {
     return Array.prototype.concat.apply([], array.map(mapFunction));
   });
@@ -1761,27 +1822,6 @@
   OF ANY KIND, either express or implied. See the License for the specific language
   governing permissions and limitations under the License.
   */
-  /**
-   * Returns whether the value is an empty object.
-   * @param {*} value
-   * @returns {boolean}
-   */
-
-  var isEmptyObject = (function (value) {
-    return isObject(value) && Object.keys(value).length === 0;
-  });
-
-  /*
-  Copyright 2019 Adobe. All rights reserved.
-  This file is licensed to you under the Apache License, Version 2.0 (the "License");
-  you may not use this file except in compliance with the License. You may obtain a copy
-  of the License at http://www.apache.org/licenses/LICENSE-2.0
-
-  Unless required by applicable law or agreed to in writing, software distributed under
-  the License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR REPRESENTATIONS
-  OF ANY KIND, either express or implied. See the License for the specific language
-  governing permissions and limitations under the License.
-  */
 
   /**
    * Returns whether the value is a number.
@@ -1961,6 +2001,46 @@
     }
 
     return repeatedPadString.slice(0, lengthToAdd) + originalString;
+  });
+
+  // to be able to add overrides in the future without us needing to make
+  // any changes to the Web SDK
+
+  var prepareConfigOverridesForEdge = (function (configuration) {
+    if (isNil(configuration) || _typeof(configuration) !== "object") {
+      return null;
+    } // remove entries that are empty strings or arrays
+
+
+    var configOverrides = filterObject(configuration, function (value) {
+      if (isNil(value)) {
+        return false;
+      }
+
+      if (isBoolean(value)) {
+        return true;
+      }
+
+      if (isNumber(value)) {
+        return true;
+      }
+
+      if (isNonEmptyString(value)) {
+        return true;
+      }
+
+      if (isNonEmptyArray(value)) {
+        return true;
+      }
+
+      return false;
+    });
+
+    if (isEmptyObject(configOverrides)) {
+      return null;
+    }
+
+    return configOverrides;
   });
 
   // Copyright Joyent, Inc. and other Node contributors.
@@ -2175,6 +2255,17 @@
     return errorToStack;
   });
 
+  /*
+  Copyright 2023 Adobe. All rights reserved.
+  This file is licensed to you under the Apache License, Version 2.0 (the "License");
+  you may not use this file except in compliance with the License. You may obtain a copy
+  of the License at http://www.apache.org/licenses/LICENSE-2.0
+
+  Unless required by applicable law or agreed to in writing, software distributed under
+  the License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR REPRESENTATIONS
+  OF ANY KIND, either express or implied. See the License for the specific language
+  governing permissions and limitations under the License.
+  */
   var stringToBoolean = (function (str) {
     return isString(str) && str.toLowerCase() === "true";
   });
@@ -3073,6 +3164,17 @@
     return boundAnyOf(values.map(boundLiteral), "one of these values: [" + JSON.stringify(values) + "]");
   };
 
+  /*
+  Copyright 2023 Adobe. All rights reserved.
+  This file is licensed to you under the Apache License, Version 2.0 (the "License");
+  you may not use this file except in compliance with the License. You may obtain a copy
+  of the License at http://www.apache.org/licenses/LICENSE-2.0
+
+  Unless required by applicable law or agreed to in writing, software distributed under
+  the License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR REPRESENTATIONS
+  OF ANY KIND, either express or implied. See the License for the specific language
+  governing permissions and limitations under the License.
+  */
   var AMBIGUOUS = "ambiguous";
   var AUTHENTICATED = "authenticated";
   var LOGGED_OUT = "loggedOut";
@@ -3097,6 +3199,19 @@
     primary: boundBoolean(),
     xid: boundString()
   }).noUnknownFields()).required());
+
+  /*
+  Copyright 2022 Adobe. All rights reserved.
+  This file is licensed to you under the Apache License, Version 2.0 (the "License");
+  you may not use this file except in compliance with the License. You may obtain a copy
+  of the License at http://www.apache.org/licenses/LICENSE-2.0
+
+  Unless required by applicable law or agreed to in writing, software distributed under
+  the License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR REPRESENTATIONS
+  OF ANY KIND, either express or implied. See the License for the specific language
+  governing permissions and limitations under the License.
+  */
+  var validateConfigOverride = boundObjectOf({});
 
   /*
   Copyright 2019 Adobe. All rights reserved.
@@ -4077,11 +4192,23 @@
         surfaces: boundArrayOf(boundString()).uniqueItems()
       }),
       datasetId: boundString(),
-      mergeId: boundString()
+      mergeId: boundString(),
+      edgeConfigOverrides: validateConfigOverride
     }).required().noUnknownFields();
     return eventOptionsValidator(options);
   });
 
+  /*
+  Copyright 2023 Adobe. All rights reserved.
+  This file is licensed to you under the Apache License, Version 2.0 (the "License");
+  you may not use this file except in compliance with the License. You may obtain a copy
+  of the License at http://www.apache.org/licenses/LICENSE-2.0
+
+  Unless required by applicable law or agreed to in writing, software distributed under
+  the License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR REPRESENTATIONS
+  OF ANY KIND, either express or implied. See the License for the specific language
+  governing permissions and limitations under the License.
+  */
   var validateApplyResponse = (function (_ref) {
     var options = _ref.options;
     var validator = boundObjectOf({
@@ -4110,7 +4237,8 @@
   */
 
   var createDataCollector = function createDataCollector(_ref) {
-    var eventManager = _ref.eventManager;
+    var eventManager = _ref.eventManager,
+        logger = _ref.logger;
     return {
       commands: {
         sendEvent: {
@@ -4133,7 +4261,8 @@
                 decisionScopes = _options$decisionScop === void 0 ? [] : _options$decisionScop,
                 _options$personalizat = options.personalization,
                 personalization = _options$personalizat === void 0 ? {} : _options$personalizat,
-                datasetId = options.datasetId;
+                datasetId = options.datasetId,
+                edgeConfigOverrides = options.edgeConfigOverrides;
             var event = eventManager.createEvent();
 
             if (documentUnloading) {
@@ -4155,19 +4284,31 @@
               });
             }
 
+            var sendEventOptions = {
+              renderDecisions: renderDecisions,
+              decisionScopes: decisionScopes,
+              personalization: personalization
+            };
+
+            if (edgeConfigOverrides) {
+              sendEventOptions.edgeConfigOverrides = edgeConfigOverrides;
+            }
+
             if (datasetId) {
-              event.mergeMeta({
-                collect: {
-                  datasetId: datasetId
+              logger.warn("The 'datasetId' option has been deprecated. Please use 'edgeConfigOverrides.experience_platform.datasets.event' instead.");
+              sendEventOptions.edgeConfigOverrides = edgeConfigOverrides || {};
+              deepAssign(sendEventOptions.edgeConfigOverrides, {
+                com_adobe_experience_platform: {
+                  datasets: {
+                    event: {
+                      datasetId: datasetId
+                    }
+                  }
                 }
               });
             }
 
-            return eventManager.sendEvent(event, {
-              renderDecisions: renderDecisions,
-              decisionScopes: decisionScopes,
-              personalization: personalization
-            });
+            return eventManager.sendEvent(event, sendEventOptions);
           }
         },
         applyResponse: {
@@ -4202,7 +4343,7 @@
   createDataCollector.configValidators = {};
 
   /*
-  Copyright 2019 Adobe. All rights reserved.
+  Copyright 2022 Adobe. All rights reserved.
   This file is licensed to you under the Apache License, Version 2.0 (the "License");
   you may not use this file except in compliance with the License. You may obtain a copy
   of the License at http://www.apache.org/licenses/LICENSE-2.0
@@ -4265,8 +4406,122 @@
   */
   var configValidators$1 = {
     clickCollectionEnabled: boundBoolean().default(true),
-    downloadLinkQualifier: boundString().regexp().default("\\.(exe|zip|wav|mp3|mov|mpg|avi|wmv|pdf|doc|docx|xls|xlsx|ppt|pptx)$")
+    downloadLinkQualifier: boundString().regexp().default("\\.(exe|zip|wav|mp3|mov|mpg|avi|wmv|pdf|doc|docx|xls|xlsx|ppt|pptx)$"),
+    onBeforeLinkClickSend: boundCallback()
   };
+
+  /*
+  Copyright 2022 Adobe. All rights reserved.
+  This file is licensed to you under the Apache License, Version 2.0 (the "License");
+  you may not use this file except in compliance with the License. You may obtain a copy
+  of the License at http://www.apache.org/licenses/LICENSE-2.0
+
+  Unless required by applicable law or agreed to in writing, software distributed under
+  the License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR REPRESENTATIONS
+  OF ANY KIND, either express or implied. See the License for the specific language
+  governing permissions and limitations under the License.
+  */
+  var createLinkClick = (function (_ref) {
+    var getLinkDetails = _ref.getLinkDetails,
+        config = _ref.config,
+        logger = _ref.logger;
+    var clickCollectionEnabled = config.clickCollectionEnabled;
+
+    if (!clickCollectionEnabled) {
+      return function () {
+        return undefined;
+      };
+    }
+
+    return function (_ref2) {
+      var targetElement = _ref2.targetElement,
+          event = _ref2.event;
+      var linkDetails = getLinkDetails({
+        targetElement: targetElement,
+        config: config,
+        logger: logger
+      });
+
+      if (linkDetails) {
+        event.mergeXdm(linkDetails.xdm);
+        event.setUserData(linkDetails.data);
+      }
+    };
+  });
+
+  /*
+  Copyright 2022 Adobe. All rights reserved.
+  This file is licensed to you under the Apache License, Version 2.0 (the "License");
+  you may not use this file except in compliance with the License. You may obtain a copy
+  of the License at http://www.apache.org/licenses/LICENSE-2.0
+
+  Unless required by applicable law or agreed to in writing, software distributed under
+  the License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR REPRESENTATIONS
+  OF ANY KIND, either express or implied. See the License for the specific language
+  governing permissions and limitations under the License.
+  */
+  var createGetLinkDetails = (function (_ref) {
+    var window = _ref.window,
+        getLinkName = _ref.getLinkName,
+        getLinkRegion = _ref.getLinkRegion,
+        getAbsoluteUrlFromAnchorElement = _ref.getAbsoluteUrlFromAnchorElement,
+        findSupportedAnchorElement = _ref.findSupportedAnchorElement,
+        determineLinkType = _ref.determineLinkType;
+    return function (_ref2) {
+      var targetElement = _ref2.targetElement,
+          config = _ref2.config,
+          logger = _ref2.logger;
+      var anchorElement = findSupportedAnchorElement(targetElement);
+
+      if (!anchorElement) {
+        logger.info("This link click event is not triggered because the HTML element is not an anchor.");
+        return undefined;
+      }
+
+      var linkUrl = getAbsoluteUrlFromAnchorElement(window, anchorElement);
+
+      if (!linkUrl) {
+        logger.info("This link click event is not triggered because the HTML element doesn't have an URL.");
+        return undefined;
+      }
+
+      var linkType = determineLinkType(window, config, linkUrl, anchorElement);
+      var linkRegion = getLinkRegion(anchorElement);
+      var linkName = getLinkName(anchorElement);
+      var onBeforeLinkClickSend = config.onBeforeLinkClickSend;
+      var options = {
+        xdm: {
+          eventType: "web.webinteraction.linkClicks",
+          web: {
+            webInteraction: {
+              name: linkName,
+              region: linkRegion,
+              type: linkType,
+              URL: linkUrl,
+              linkClicks: {
+                value: 1
+              }
+            }
+          }
+        },
+        data: {},
+        clickedElement: targetElement
+      };
+
+      if (!onBeforeLinkClickSend) {
+        return options;
+      }
+
+      var shouldEventBeTracked = onBeforeLinkClickSend(options);
+
+      if (shouldEventBeTracked !== false) {
+        return options;
+      }
+
+      logger.info("This link click event is not triggered because it was canceled in onBeforeLinkClickSend.");
+      return undefined;
+    };
+  });
 
   /*
   Copyright 2019 Adobe. All rights reserved.
@@ -4336,18 +4591,18 @@
 
     return true;
   };
+  /**
+   * Reduces repeated whitespace within a string. Whitespace surrounding the string
+   * is trimmed and any occurrence of whitespace within the string is replaced with
+   * a single space.
+   * @param {string} str String to be formatted.
+   * @returns {string} Formatted string.
+   */
 
-  /*
-  Copyright 2019 Adobe. All rights reserved.
-  This file is licensed to you under the Apache License, Version 2.0 (the "License");
-  you may not use this file except in compliance with the License. You may obtain a copy
-  of the License at http://www.apache.org/licenses/LICENSE-2.0
 
-  Unless required by applicable law or agreed to in writing, software distributed under
-  the License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR REPRESENTATIONS
-  OF ANY KIND, either express or implied. See the License for the specific language
-  governing permissions and limitations under the License.
-  */
+  var truncateWhiteSpace = function truncateWhiteSpace(str) {
+    return str && str.replace(/\s+/g, " ").trim();
+  };
 
   var determineLinkType = function determineLinkType(window, config, linkUrl, clickedObj) {
     var linkType = "other";
@@ -4375,46 +4630,222 @@
     return null;
   };
 
-  var createLinkClick = (function (window, config) {
-    return function (event, targetElement) {
-      var clickCollectionEnabled = config.clickCollectionEnabled;
+  /*
+  Copyright 2022 Adobe. All rights reserved.
+  This file is licensed to you under the Apache License, Version 2.0 (the "License");
+  you may not use this file except in compliance with the License. You may obtain a copy
+  of the License at http://www.apache.org/licenses/LICENSE-2.0
 
-      if (!clickCollectionEnabled) {
-        return;
-      } // Search parent elements for an anchor element
-      // TODO: Replace with generic DOM tool that can fetch configured properties
+  Unless required by applicable law or agreed to in writing, software distributed under
+  the License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR REPRESENTATIONS
+  OF ANY KIND, either express or implied. See the License for the specific language
+  governing permissions and limitations under the License.
+  */
+  var unsupportedNodeNames = /^(SCRIPT|STYLE|LINK|CANVAS|NOSCRIPT|#COMMENT)$/i;
+  /**
+   * Determines if a node qualifies as a supported link text node.
+   * @param {*} node Node to determine support for.
+   * @returns {boolean}
+   */
 
-
-      var anchorElement = findSupportedAnchorElement(targetElement);
-
-      if (!anchorElement) {
-        return;
+  var isSupportedTextNode = function isSupportedTextNode(node) {
+    if (node && node.nodeName) {
+      if (node.nodeName.match(unsupportedNodeNames)) {
+        return false;
       }
+    }
 
-      var linkUrl = getAbsoluteUrlFromAnchorElement(window, anchorElement);
+    return true;
+  };
+  /**
+   * Orders and returns specified node and its child nodes in arrays of supported
+   * and unsupported nodes.
+   * @param {*} node The node to extract supported and unsupported nodes from.
+   * @returns {{supportedNodes: Array, includesUnsupportedNodes: boolean}} Node support object.
+   */
 
-      if (!linkUrl) {
-        return;
+
+  var extractSupportedNodes = function extractSupportedNodes(node) {
+    var supportedNodes = [];
+    var includesUnsupportedNodes = false;
+
+    if (isSupportedTextNode(node)) {
+      supportedNodes.push(node);
+
+      if (node.childNodes) {
+        var childNodes = Array.prototype.slice.call(node.childNodes);
+        childNodes.forEach(function (childNode) {
+          var nodes = extractSupportedNodes(childNode);
+          supportedNodes = supportedNodes.concat(nodes.supportedNodes);
+          includesUnsupportedNodes = includesUnsupportedNodes || nodes.includesUnsupportedNodes;
+        });
       }
+    } else {
+      includesUnsupportedNodes = true;
+    }
 
-      var linkType = determineLinkType(window, config, linkUrl, anchorElement); // TODO: Update link name from the clicked element context
-
-      var linkName = "Link Click";
-      event.documentMayUnload();
-      event.mergeXdm({
-        eventType: "web.webinteraction.linkClicks",
-        web: {
-          webInteraction: {
-            name: linkName,
-            type: linkType,
-            URL: linkUrl,
-            linkClicks: {
-              value: 1
-            }
-          }
-        }
-      });
+    return {
+      supportedNodes: supportedNodes,
+      includesUnsupportedNodes: includesUnsupportedNodes
     };
+  };
+  /**
+   * Returns the value of a node attribute.
+   * @param {*} node The node holding the attribute.
+   * @param {string} attributeName The name of the attribute.
+   * @param {string} nodeName Optional node name constraint.
+   * @returns {string} Attribute value or undefined.
+   */
+
+
+  var getNodeAttributeValue = function getNodeAttributeValue(node, attributeName, nodeName) {
+    var attributeValue;
+
+    if (!nodeName || nodeName === node.nodeName.toUpperCase()) {
+      attributeValue = node.getAttribute(attributeName);
+    }
+
+    return attributeValue;
+  };
+  /**
+   * Extracts the children supported nodes attributes map
+   * @param {*} nodes The nodes array holding the children nodes.
+   * The returned map contains the supported not empty children attributes values.
+   * */
+
+
+  var getChildrenAttributes = function getChildrenAttributes(nodes) {
+    var attributes = {
+      texts: []
+    };
+    nodes.supportedNodes.forEach(function (supportedNode) {
+      if (supportedNode.getAttribute) {
+        if (!attributes.alt) {
+          attributes.alt = truncateWhiteSpace(supportedNode.getAttribute("alt"));
+        }
+
+        if (!attributes.title) {
+          attributes.title = truncateWhiteSpace(supportedNode.getAttribute("title"));
+        }
+
+        if (!attributes.inputValue) {
+          attributes.inputValue = truncateWhiteSpace(getNodeAttributeValue(supportedNode, "value", "INPUT"));
+        }
+
+        if (!attributes.imgSrc) {
+          attributes.imgSrc = truncateWhiteSpace(getNodeAttributeValue(supportedNode, "src", "IMG"));
+        }
+      }
+
+      if (supportedNode.nodeValue) {
+        attributes.texts.push(supportedNode.nodeValue);
+      }
+    });
+    return attributes;
+  };
+  /**
+   * Extracts a link-name from a given node.
+   *
+   * The returned link-name is set to one of the following (in order of priority):
+   *
+   * 1. Clicked node innerText
+   * 2. Clicked node textContent
+   * 3. Clicked node and its child nodes nodeValue appended together.
+   * 4. Clicked node alt attribute or node descendant alt attribute.
+   *    Whichever is found first.
+   * 5. Clicked node text attribute or node descendant text attribute.
+   *    Whichever is found first.
+   * 6. Clicked node INPUT descendant value attribute.
+   *    Whichever is found first.
+   * 7. Clicked node IMG descendant src attribute.
+   *    Whichever is found first.
+   *
+   * @param {*} node The node to find link text for.
+   * @returns {string} link-name or an empty string if not link-name is found.
+   */
+
+
+  var getLinkName = (function (node) {
+    var nodeText = truncateWhiteSpace(node.innerText || node.textContent);
+    var nodes = extractSupportedNodes(node); // if contains unsupported nodes we want children node attributes
+
+    if (!nodeText || nodes.includesUnsupportedNodes) {
+      var attributesMap = getChildrenAttributes(nodes);
+      nodeText = truncateWhiteSpace(attributesMap.texts.join(""));
+
+      if (!nodeText) {
+        nodeText = attributesMap.alt || attributesMap.title || attributesMap.inputValue || attributesMap.imgSrc;
+      }
+    }
+
+    return nodeText || "";
+  });
+
+  /*
+  Copyright 2022 Adobe. All rights reserved.
+  This file is licensed to you under the Apache License, Version 2.0 (the "License");
+  you may not use this file except in compliance with the License. You may obtain a copy
+  of the License at http://www.apache.org/licenses/LICENSE-2.0
+
+  Unless required by applicable law or agreed to in writing, software distributed under
+  the License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR REPRESENTATIONS
+  OF ANY KIND, either express or implied. See the License for the specific language
+  governing permissions and limitations under the License.
+  */
+  var semanticElements = /^(HEADER|MAIN|FOOTER|NAV)$/i;
+
+  var getAriaRegionLabel = function getAriaRegionLabel(node) {
+    var regionLabel;
+
+    if (node.role === "region" && isNonEmptyString(node["aria-label"])) {
+      regionLabel = node["aria-label"];
+    }
+
+    return regionLabel;
+  };
+
+  var getSectionNodeName = function getSectionNodeName(node) {
+    var nodeName;
+
+    if (node && node.nodeName) {
+      if (node.nodeName.match(semanticElements)) {
+        nodeName = node.nodeName;
+      }
+    }
+
+    return nodeName;
+  };
+  /**
+   * Extracts a node link-region.
+   *
+   * The link-region is determined by traversing up the DOM
+   * looking for a region that is determined in order of priority:
+   *
+   * 1. element.id
+   * 2. Aria region label
+   * 3. Semantic element name
+   * 4. BODY (if no other link-region is found).
+   *
+   * @param {*} node The node to find link region for.
+   * @returns {string} link-region.
+   */
+
+
+  var getLinkRegion = (function (node) {
+    var linkParentNode = node.parentNode;
+    var regionName;
+
+    while (linkParentNode) {
+      regionName = truncateWhiteSpace(linkParentNode.id || getAriaRegionLabel(linkParentNode) || getSectionNodeName(linkParentNode));
+
+      if (regionName) {
+        return regionName;
+      }
+
+      linkParentNode = linkParentNode.parentNode;
+    }
+
+    return "BODY";
   });
 
   /*
@@ -4429,17 +4860,30 @@
   governing permissions and limitations under the License.
   */
 
+  var _getLinkDetails = createGetLinkDetails({
+    window: window,
+    getLinkName: getLinkName,
+    getLinkRegion: getLinkRegion,
+    getAbsoluteUrlFromAnchorElement: getAbsoluteUrlFromAnchorElement,
+    findSupportedAnchorElement: findSupportedAnchorElement,
+    determineLinkType: determineLinkType
+  });
+
   var createActivityCollector = function createActivityCollector(_ref) {
     var config = _ref.config,
         eventManager = _ref.eventManager,
-        handleError = _ref.handleError;
-    var linkClick = createLinkClick(window, config);
+        handleError = _ref.handleError,
+        logger = _ref.logger;
+    var linkClick = createLinkClick({
+      getLinkDetails: _getLinkDetails,
+      config: config,
+      logger: logger
+    });
     return {
       lifecycle: {
         onComponentsRegistered: function onComponentsRegistered(tools) {
           var lifecycle = tools.lifecycle;
           attachClickActivityCollector({
-            config: config,
             eventManager: eventManager,
             lifecycle: lifecycle,
             handleError: handleError
@@ -4448,7 +4892,10 @@
         onClick: function onClick(_ref2) {
           var event = _ref2.event,
               clickedElement = _ref2.clickedElement;
-          linkClick(event, clickedElement);
+          linkClick({
+            targetElement: clickedElement,
+            event: event
+          });
         }
       }
     };
@@ -4456,6 +4903,20 @@
 
   createActivityCollector.namespace = "ActivityCollector";
   createActivityCollector.configValidators = configValidators$1;
+
+  createActivityCollector.buildOnInstanceConfiguredExtraParams = function (_ref3) {
+    var config = _ref3.config,
+        logger = _ref3.logger;
+    return {
+      getLinkDetails: function getLinkDetails(targetElement) {
+        return _getLinkDetails({
+          targetElement: targetElement,
+          config: config,
+          logger: logger
+        });
+      }
+    };
+  };
 
   /*
   Copyright 2019 Adobe. All rights reserved.
@@ -4531,16 +4992,11 @@
    * @returns {*} Validated options
    */
 
-  var getIdentityOptionsValidator = (function (options) {
-    var getIdentityOptionsValidator = boundObjectOf({
-      namespaces: boundArrayOf(boundLiteral("ECID")).nonEmpty().uniqueItems()
-    }).noUnknownFields();
-    getIdentityOptionsValidator(options); // Return default options for now
-    // To-Do: Accept namespace from given options
-
-    return {
-      namespaces: ["ECID"]
-    };
+  var getIdentityOptionsValidator = boundObjectOf({
+    namespaces: boundArrayOf(boundLiteral("ECID")).nonEmpty().uniqueItems().default(["ECID"]),
+    edgeConfigOverrides: validateConfigOverride
+  }).noUnknownFields().default({
+    namespaces: ["ECID"]
   });
 
   /*
@@ -4561,9 +5017,21 @@
    */
 
   var appendIdentityToUrlOptionsValidator = boundObjectOf({
-    url: boundString().required().nonEmpty()
+    url: boundString().required().nonEmpty(),
+    edgeConfigOverrides: validateConfigOverride
   }).required().noUnknownFields();
 
+  /*
+  Copyright 2023 Adobe. All rights reserved.
+  This file is licensed to you under the Apache License, Version 2.0 (the "License");
+  you may not use this file except in compliance with the License. You may obtain a copy
+  of the License at http://www.apache.org/licenses/LICENSE-2.0
+
+  Unless required by applicable law or agreed to in writing, software distributed under
+  the License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR REPRESENTATIONS
+  OF ANY KIND, either express or implied. See the License for the specific language
+  governing permissions and limitations under the License.
+  */
   var createComponent$4 = (function (_ref) {
     var addEcidQueryToPayload = _ref.addEcidQueryToPayload,
         addQueryStringIdentityToPayload = _ref.addQueryStringIdentityToPayload,
@@ -4616,7 +5084,7 @@
           optionsValidator: getIdentityOptionsValidator,
           run: function run(options) {
             return consent.awaitConsent().then(function () {
-              return ecid ? undefined : getIdentity(options.namespaces);
+              return ecid ? undefined : getIdentity(options);
             }).then(function () {
               return {
                 identity: {
@@ -4631,7 +5099,7 @@
           optionsValidator: appendIdentityToUrlOptionsValidator,
           run: function run(options) {
             return consent.withConsent().then(function () {
-              return ecid ? undefined : getIdentity(options.namespaces);
+              return ecid ? undefined : getIdentity(options);
             }).then(function () {
               return {
                 url: appendIdentityToUrl(ecid, options.url)
@@ -5205,10 +5673,18 @@
   var createGetIdentity = (function (_ref) {
     var sendEdgeNetworkRequest = _ref.sendEdgeNetworkRequest,
         createIdentityRequestPayload = _ref.createIdentityRequestPayload,
-        createIdentityRequest = _ref.createIdentityRequest;
-    return function (namespaces) {
+        createIdentityRequest = _ref.createIdentityRequest,
+        globalConfigOverrides = _ref.globalConfigOverrides;
+    return function () {
+      var _ref2 = arguments.length > 0 && arguments[0] !== undefined ? arguments[0] : {},
+          namespaces = _ref2.namespaces,
+          localConfigOverrides = _ref2.edgeConfigOverrides;
+
       var payload = createIdentityRequestPayload(namespaces);
-      var request = createIdentityRequest(payload);
+      var request = createIdentityRequest(payload); // merge the configurations, but give preference to the command-local configs
+
+      payload.mergeConfigOverride(globalConfigOverrides);
+      payload.mergeConfigOverride(localConfigOverrides);
       return sendEdgeNetworkRequest({
         request: request
       });
@@ -5363,10 +5839,16 @@
     var content = options.content,
         addIdentity = options.addIdentity,
         hasIdentity = options.hasIdentity;
+
+    var _mergeConfigOverride = createMerger(content, "meta.configOverrides");
+
     return {
       mergeMeta: createMerger(content, "meta"),
       mergeState: createMerger(content, "meta.state"),
       mergeQuery: createMerger(content, "query"),
+      mergeConfigOverride: function mergeConfigOverride(updates) {
+        return _mergeConfigOverride(prepareConfigOverridesForEdge(updates));
+      },
       addIdentity: addIdentity,
       hasIdentity: hasIdentity,
       toJSON: function toJSON() {
@@ -5583,7 +6065,8 @@
         sendEdgeNetworkRequest = _ref.sendEdgeNetworkRequest,
         apexDomain = _ref.apexDomain;
     var orgId = config.orgId,
-        thirdPartyCookiesEnabled = config.thirdPartyCookiesEnabled;
+        thirdPartyCookiesEnabled = config.thirdPartyCookiesEnabled,
+        globalConfigOverrides = config.edgeConfigOverrides;
     var getEcidFromVisitor = injectGetEcidFromVisitor({
       logger: logger,
       orgId: orgId,
@@ -5606,7 +6089,8 @@
     var getIdentity = createGetIdentity({
       sendEdgeNetworkRequest: sendEdgeNetworkRequest,
       createIdentityRequestPayload: createIdentityRequestPayload,
-      createIdentityRequest: createIdentityRequest
+      createIdentityRequest: createIdentityRequest,
+      globalConfigOverrides: globalConfigOverrides
     });
     var setDomainForInitialIdentityPayload = injectSetDomainForInitialIdentityPayload({
       thirdPartyCookiesEnabled: thirdPartyCookiesEnabled,
@@ -5646,7 +6130,8 @@
       dateProvider: function dateProvider() {
         return new Date();
       },
-      orgId: orgId
+      orgId: orgId,
+      globalConfigOverrides: globalConfigOverrides
     });
     return createComponent$4({
       addEcidQueryToPayload: addEcidQueryToPayload,
@@ -5658,7 +6143,8 @@
       getIdentity: getIdentity,
       consent: consent,
       appendIdentityToUrl: appendIdentityToUrl,
-      logger: logger
+      logger: logger,
+      config: config
     });
   };
 
@@ -5703,11 +6189,9 @@
       return Promise.all(urlDestinations.map(function (urlDestination) {
         return fireReferrerHideableImage(urlDestination.spec).then(function () {
           logger.info(createResultLogMessage(urlDestination, true));
-        }).catch(function () {
-          // We intentionally do not throw an error if destinations fail. We
+        }).catch(function () {// We intentionally do not throw an error if destinations fail. We
           // consider it a non-critical failure and therefore do not want it to
           // reject the promise handed back to the customer.
-          logger.error(createResultLogMessage(urlDestination, false));
         });
       })).then(noop$1);
     };
@@ -6040,9 +6524,31 @@
     };
   });
 
+  /*
+  Copyright 2023 Adobe. All rights reserved.
+  This file is licensed to you under the Apache License, Version 2.0 (the "License");
+  you may not use this file except in compliance with the License. You may obtain a copy
+  of the License at http://www.apache.org/licenses/LICENSE-2.0
+
+  Unless required by applicable law or agreed to in writing, software distributed under
+  the License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR REPRESENTATIONS
+  OF ANY KIND, either express or implied. See the License for the specific language
+  governing permissions and limitations under the License.
+  */
   var AUTHORING_ENABLED = "Rendering is disabled for authoring mode.";
   var REDIRECT_EXECUTION_ERROR = "An error occurred while executing the redirect offer.";
 
+  /*
+  Copyright 2023 Adobe. All rights reserved.
+  This file is licensed to you under the Apache License, Version 2.0 (the "License");
+  you may not use this file except in compliance with the License. You may obtain a copy
+  of the License at http://www.apache.org/licenses/LICENSE-2.0
+
+  Unless required by applicable law or agreed to in writing, software distributed under
+  the License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR REPRESENTATIONS
+  OF ANY KIND, either express or implied. See the License for the specific language
+  governing permissions and limitations under the License.
+  */
   var EMPTY_PROPOSITIONS = {
     propositions: []
   };
@@ -7791,8 +8297,14 @@
     return item;
   };
 
+  var getItemMeta = function getItemMeta(item, decisionMeta) {
+    return item.characteristics && item.characteristics.trackingLabel ? reactorObjectAssign({
+      trackingLabel: item.characteristics.trackingLabel
+    }, decisionMeta) : decisionMeta;
+  };
+
   var buildActions = function buildActions(decision) {
-    var meta = {
+    var decisionMeta = {
       id: decision.id,
       scope: decision.scope,
       scopeDetails: decision.scopeDetails
@@ -7801,7 +8313,7 @@
       return reactorObjectAssign({
         type: DEFAULT_ACTION_TYPE
       }, item.data, {
-        meta: meta
+        meta: getItemMeta(item, decisionMeta)
       });
     });
   };
@@ -7924,30 +8436,81 @@
     var _document = document,
         documentElement = _document.documentElement;
     var element = clickedElement;
+    var i = 0;
 
     while (element && element !== documentElement) {
       if (matchesSelectorWithEq(selector, element)) {
-        return getClickMetasBySelector(selector);
+        var matchedMetas = getClickMetasBySelector(selector);
+        var foundMetaWithLabel = matchedMetas.find(function (meta) {
+          return meta.trackingLabel;
+        });
+
+        if (foundMetaWithLabel) {
+          return {
+            metas: matchedMetas,
+            label: foundMetaWithLabel.trackingLabel,
+            weight: i
+          };
+        }
+
+        return {
+          metas: matchedMetas
+        };
       }
 
       element = element.parentNode;
+      i += 1;
     }
 
-    return null;
+    return {
+      metas: null
+    };
+  };
+
+  var cleanMetas = function cleanMetas(metas) {
+    return metas.map(function (meta) {
+      delete meta.trackingLabel;
+      return meta;
+    });
+  };
+
+  var dedupMetas = function dedupMetas(metas) {
+    return metas.filter(function (meta, index) {
+      var stringifiedMeta = JSON.stringify(meta);
+      return index === metas.findIndex(function (innerMeta) {
+        return JSON.stringify(innerMeta) === stringifiedMeta;
+      });
+    });
   };
 
   var collectClicks = (function (clickedElement, selectors, getClickMetasBySelector) {
     var result = [];
+    var resultLabel = "";
+    var resultLabelWeight = Number.MAX_SAFE_INTEGER;
+    /* eslint-disable no-continue */
 
     for (var i = 0; i < selectors.length; i += 1) {
-      var metas = getMetasIfMatches(clickedElement, selectors[i], getClickMetasBySelector);
+      var _getMetasIfMatches = getMetasIfMatches(clickedElement, selectors[i], getClickMetasBySelector),
+          metas = _getMetasIfMatches.metas,
+          label = _getMetasIfMatches.label,
+          weight = _getMetasIfMatches.weight;
 
-      if (metas) {
-        result.push.apply(result, _toConsumableArray(metas));
+      if (!metas) {
+        continue;
       }
+
+      if (label && weight <= resultLabelWeight) {
+        resultLabel = label;
+        resultLabelWeight = weight;
+      }
+
+      result.push.apply(result, _toConsumableArray(cleanMetas(metas)));
     }
 
-    return result;
+    return {
+      decisionsMeta: dedupMetas(result),
+      eventLabel: resultLabel
+    };
   });
 
   /*
@@ -7978,15 +8541,26 @@
   governing permissions and limitations under the License.
   */
   var EVENT_TYPE_TRUE = 1;
+  /* eslint-disable no-underscore-dangle */
+
   var mergeDecisionsMeta = function mergeDecisionsMeta(event, decisionsMeta, eventType) {
-    event.mergeXdm({
+    var eventLabel = arguments.length > 3 && arguments[3] !== undefined ? arguments[3] : "";
+    var xdm = {
       _experience: {
         decisioning: {
           propositions: decisionsMeta,
           propositionEventType: _defineProperty({}, eventType, EVENT_TYPE_TRUE)
         }
       }
-    });
+    };
+
+    if (eventLabel) {
+      xdm._experience.decisioning.propositionAction = {
+        label: eventLabel
+      };
+    }
+
+    event.mergeXdm(xdm);
   };
   var mergeQuery = function mergeQuery(event, details) {
     event.mergeQuery({
@@ -8017,7 +8591,9 @@
       var selectors = getClickSelectors();
 
       if (isNonEmptyArray(selectors)) {
-        var decisionsMeta = collectClicks(clickedElement, selectors, getClickMetasBySelector);
+        var _collectClicks = collectClicks(clickedElement, selectors, getClickMetasBySelector),
+            decisionsMeta = _collectClicks.decisionsMeta,
+            eventLabel = _collectClicks.eventLabel;
 
         if (isNonEmptyArray(decisionsMeta)) {
           var xdm = {
@@ -8034,7 +8610,7 @@
           }
 
           event.mergeXdm(xdm);
-          mergeDecisionsMeta(event, decisionsMeta, PropositionEventType.INTERACT);
+          mergeDecisionsMeta(event, decisionsMeta, PropositionEventType.INTERACT, eventLabel);
         }
       }
     };
@@ -8110,6 +8686,17 @@
     });
   });
 
+  /*
+  Copyright 2023 Adobe. All rights reserved.
+  This file is licensed to you under the Apache License, Version 2.0 (the "License");
+  you may not use this file except in compliance with the License. You may obtain a copy
+  of the License at http://www.apache.org/licenses/LICENSE-2.0
+
+  Unless required by applicable law or agreed to in writing, software distributed under
+  the License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR REPRESENTATIONS
+  OF ANY KIND, either express or implied. See the License for the specific language
+  governing permissions and limitations under the License.
+  */
   var composePersonalizationResultingObject = (function () {
     var decisions = arguments.length > 0 && arguments[0] !== undefined ? arguments[0] : [];
     var renderDecisions = arguments.length > 1 ? arguments[1] : undefined;
@@ -8414,7 +9001,8 @@
       return {
         id: key,
         scope: metas[key].scope,
-        scopeDetails: metas[key].scopeDetails
+        scopeDetails: metas[key].scopeDetails,
+        trackingLabel: metas[key].trackingLabel
       };
     });
   };
@@ -8429,7 +9017,8 @@
 
       clickStorage[value.selector][value.meta.id] = {
         scope: value.meta.scope,
-        scopeDetails: value.meta.scopeDetails
+        scopeDetails: value.meta.scopeDetails,
+        trackingLabel: value.meta.trackingLabel
       };
     };
 
@@ -9086,7 +9675,7 @@
   */
   // The __VERSION__ keyword will be replace at alloy build time with the package.json version.
   // see babel-plugin-version
-  var libraryVersion = "2.14.0";
+  var libraryVersion = "2.16.0";
 
   /*
   Copyright 2019 Adobe. All rights reserved.
@@ -9282,14 +9871,16 @@
           optionsValidator: validateSetConsentOptions,
           run: function run(_ref2) {
             var consentOptions = _ref2.consent,
-                identityMap = _ref2.identityMap;
+                identityMap = _ref2.identityMap,
+                edgeConfigOverrides = _ref2.edgeConfigOverrides;
             consent.suspend();
             var consentHashes = consentHashStore.lookup(consentOptions);
             return taskQueue.addTask(function () {
               if (consentHashes.isNew()) {
                 return sendSetConsentRequest({
                   consentOptions: consentOptions,
-                  identityMap: identityMap
+                  identityMap: identityMap,
+                  edgeConfigOverrides: edgeConfigOverrides
                 });
               }
 
@@ -9480,12 +10071,16 @@
   var injectSendSetConsentRequest = (function (_ref) {
     var createConsentRequestPayload = _ref.createConsentRequestPayload,
         createConsentRequest = _ref.createConsentRequest,
-        sendEdgeNetworkRequest = _ref.sendEdgeNetworkRequest;
+        sendEdgeNetworkRequest = _ref.sendEdgeNetworkRequest,
+        globalConfigOverrides = _ref.edgeConfigOverrides;
     return function (_ref2) {
       var consentOptions = _ref2.consentOptions,
-          identityMap = _ref2.identityMap;
+          identityMap = _ref2.identityMap,
+          localConfigOverrides = _ref2.edgeConfigOverrides;
       var payload = createConsentRequestPayload();
       payload.setConsent(consentOptions);
+      payload.mergeConfigOverride(globalConfigOverrides);
+      payload.mergeConfigOverride(localConfigOverrides);
 
       if (isObject(identityMap)) {
         Object.keys(identityMap).forEach(function (key) {
@@ -9535,9 +10130,21 @@
     }, {});
   });
 
+  /*
+  Copyright 2023 Adobe. All rights reserved.
+  This file is licensed to you under the Apache License, Version 2.0 (the "License");
+  you may not use this file except in compliance with the License. You may obtain a copy
+  of the License at http://www.apache.org/licenses/LICENSE-2.0
+
+  Unless required by applicable law or agreed to in writing, software distributed under
+  the License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR REPRESENTATIONS
+  OF ANY KIND, either express or implied. See the License for the specific language
+  governing permissions and limitations under the License.
+  */
   var validateSetConsentOptions = boundObjectOf({
     consent: boundArrayOf(boundAnything()).required().nonEmpty(),
-    identityMap: validateIdentityMap
+    identityMap: validateIdentityMap,
+    edgeConfigOverrides: validateConfigOverride
   }).noUnknownFields().required();
 
   /*
@@ -9568,7 +10175,8 @@
     var sendSetConsentRequest = injectSendSetConsentRequest({
       createConsentRequestPayload: createConsentRequestPayload,
       createConsentRequest: createConsentRequest,
-      sendEdgeNetworkRequest: sendEdgeNetworkRequest
+      sendEdgeNetworkRequest: sendEdgeNetworkRequest,
+      edgeConfigOverrides: config.edgeConfigOverrides
     });
     var storage = createNamespacedStorage(sanitizeOrgIdForCookieName(orgId) + ".consentHashes.");
     var consentHashStore = createConsentHashStore({
@@ -9752,17 +10360,6 @@
 
   var componentCreators = [createDataCollector, createActivityCollector, createIdentity, createAudiences, createPersonalization, createContext, createPrivacy, createEventMerge, createLibraryInfo, createMachineLearning];
 
-  /*
-  Copyright 2019 Adobe. All rights reserved.
-  This file is licensed to you under the Apache License, Version 2.0 (the "License");
-  you may not use this file except in compliance with the License. You may obtain a copy
-  of the License at http://www.apache.org/licenses/LICENSE-2.0
-
-  Unless required by applicable law or agreed to in writing, software distributed under
-  the License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR REPRESENTATIONS
-  OF ANY KIND, either express or implied. See the License for the specific language
-  governing permissions and limitations under the License.
-  */
   var CONFIG_DOC_URI = "https://adobe.ly/3sHh553";
 
   var buildSchema = function buildSchema(coreConfigValidators, componentCreators) {
@@ -9784,21 +10381,38 @@
     }
   };
 
-  var buildAndValidateConfig = (function (_ref) {
-    var options = _ref.options,
-        componentCreators = _ref.componentCreators,
-        coreConfigValidators = _ref.coreConfigValidators,
-        createConfig = _ref.createConfig,
-        logger = _ref.logger,
-        setDebugEnabled = _ref.setDebugEnabled;
+  var buildAllOnInstanceConfiguredExtraParams = function buildAllOnInstanceConfiguredExtraParams(config, logger, componentCreators) {
+    return componentCreators.reduce(function (memo, _ref) {
+      var buildOnInstanceConfiguredExtraParams = _ref.buildOnInstanceConfiguredExtraParams;
+
+      if (buildOnInstanceConfiguredExtraParams) {
+        reactorObjectAssign(memo, buildOnInstanceConfiguredExtraParams({
+          config: config,
+          logger: logger
+        }));
+      }
+
+      return memo;
+    }, {});
+  };
+
+  var buildAndValidateConfig = (function (_ref2) {
+    var options = _ref2.options,
+        componentCreators = _ref2.componentCreators,
+        coreConfigValidators = _ref2.coreConfigValidators,
+        createConfig = _ref2.createConfig,
+        logger = _ref2.logger,
+        setDebugEnabled = _ref2.setDebugEnabled;
     var schema = buildSchema(coreConfigValidators, componentCreators);
     var config = createConfig(transformOptions(schema, options));
     setDebugEnabled(config.debugEnabled, {
       fromConfig: true
-    });
-    logger.logOnInstanceConfigured({
+    }); // eslint-disable-next-line no-underscore-dangle
+
+    var extraParams = buildAllOnInstanceConfiguredExtraParams(config, logger, componentCreators);
+    logger.logOnInstanceConfigured(_objectSpread2(_objectSpread2({}, extraParams), {}, {
       config: config
-    });
+    }));
     return config;
   });
 
@@ -9872,6 +10486,17 @@
   var EDGE = "edge.adobedc.net";
   var ID_THIRD_PARTY = "adobedc.demdex.net";
 
+  /*
+  Copyright 2023 Adobe. All rights reserved.
+  This file is licensed to you under the Apache License, Version 2.0 (the "License");
+  you may not use this file except in compliance with the License. You may obtain a copy
+  of the License at http://www.apache.org/licenses/LICENSE-2.0
+
+  Unless required by applicable law or agreed to in writing, software distributed under
+  the License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR REPRESENTATIONS
+  OF ANY KIND, either express or implied. See the License for the specific language
+  governing permissions and limitations under the License.
+  */
   var EDGE_BASE_PATH = "ee";
 
   /*
@@ -9893,7 +10518,8 @@
       edgeDomain: boundString().domain().default(EDGE),
       edgeBasePath: boundString().nonEmpty().default(EDGE_BASE_PATH),
       orgId: boundString().unique().required(),
-      onBeforeEventSend: boundCallback().default(noop$1)
+      onBeforeEventSend: boundCallback().default(noop$1),
+      edgeConfigOverrides: validateConfigOverride
     };
   });
 
@@ -10193,7 +10819,8 @@
         createDataCollectionRequest = _ref.createDataCollectionRequest,
         sendEdgeNetworkRequest = _ref.sendEdgeNetworkRequest,
         _applyResponse = _ref.applyResponse;
-    var onBeforeEventSend = config.onBeforeEventSend;
+    var onBeforeEventSend = config.onBeforeEventSend,
+        globalConfigOverrides = config.edgeConfigOverrides;
     return {
       createEvent: createEvent,
 
@@ -10218,11 +10845,14 @@
         var _options$renderDecisi = options.renderDecisions,
             renderDecisions = _options$renderDecisi === void 0 ? false : _options$renderDecisi,
             decisionScopes = options.decisionScopes,
+            localConfigOverrides = options.edgeConfigOverrides,
             personalization = options.personalization;
         var payload = createDataCollectionRequestPayload();
         var request = createDataCollectionRequest(payload);
         var onResponseCallbackAggregator = createCallbackAggregator();
         var onRequestFailureCallbackAggregator = createCallbackAggregator();
+        payload.mergeConfigOverride(globalConfigOverrides);
+        payload.mergeConfigOverride(localConfigOverrides);
         return lifecycle.onBeforeEvent({
           event: event,
           renderDecisions: renderDecisions,
@@ -10421,6 +11051,17 @@
     };
   });
 
+  /*
+  Copyright 2023 Adobe. All rights reserved.
+  This file is licensed to you under the Apache License, Version 2.0 (the "License");
+  you may not use this file except in compliance with the License. You may obtain a copy
+  of the License at http://www.apache.org/licenses/LICENSE-2.0
+
+  Unless required by applicable law or agreed to in writing, software distributed under
+  the License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR REPRESENTATIONS
+  OF ANY KIND, either express or implied. See the License for the specific language
+  governing permissions and limitations under the License.
+  */
   var apiVersion = "v1";
 
   var mergeLifecycleResponses = (function (returnValues) {
@@ -10432,6 +11073,17 @@
     return reactorObjectAssign.apply(void 0, [{}].concat(_toConsumableArray(lifecycleOnResponseReturnValues), _toConsumableArray(consumerOnResponseReturnValues), _toConsumableArray(lifecycleOnBeforeRequestReturnValues)));
   });
 
+  /*
+  Copyright 2023 Adobe. All rights reserved.
+  This file is licensed to you under the Apache License, Version 2.0 (the "License");
+  you may not use this file except in compliance with the License. You may obtain a copy
+  of the License at http://www.apache.org/licenses/LICENSE-2.0
+
+  Unless required by applicable law or agreed to in writing, software distributed under
+  the License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR REPRESENTATIONS
+  OF ANY KIND, either express or implied. See the License for the specific language
+  governing permissions and limitations under the License.
+  */
   var handleRequestFailure = (function (onRequestFailureCallbackAggregator) {
     return function (error) {
       // Regardless of whether the network call failed, an unexpected status
@@ -10712,6 +11364,17 @@
     return delayInMillis;
   });
 
+  /*
+  Copyright 2023 Adobe. All rights reserved.
+  This file is licensed to you under the Apache License, Version 2.0 (the "License");
+  you may not use this file except in compliance with the License. You may obtain a copy
+  of the License at http://www.apache.org/licenses/LICENSE-2.0
+
+  Unless required by applicable law or agreed to in writing, software distributed under
+  the License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR REPRESENTATIONS
+  OF ANY KIND, either express or implied. See the License for the specific language
+  governing permissions and limitations under the License.
+  */
   var HTTP_STATUS_OK = 200;
   var injectApplyResponse = (function (_ref) {
     var cookieTransfer = _ref.cookieTransfer,
