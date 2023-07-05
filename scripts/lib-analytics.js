@@ -38,7 +38,7 @@ export function getExperimentDetails() {
  * https://experienceleague.adobe.com/docs/experience-platform/edge/fundamentals/installing-the-sdk.html?lang=en#adding-the-code
  * @type {string}
  */
-function getAlloyInitScript() {
+export function getAlloyInitScript() {
   return `!function(n,o){o.forEach(function(o){n[o]||((n.__alloyNS=n.__alloyNS||[]).push(o),n[o]=
   function(){var u=arguments;return new Promise(function(i,l){n[o].q.push([i,l,u])})},n[o].q=[])})}(window,["alloy"]);`;
 }
@@ -96,7 +96,7 @@ function getAlloyConfiguration(document) {
  * @param type the type of the script element
  * @returns {HTMLScriptElement}
  */
-function createInlineScript(document, element, innerHTML, type) {
+export function createInlineScript(document, element, innerHTML, type) {
   const script = document.createElement('script');
   if (type) {
     script.type = type;
@@ -158,8 +158,6 @@ export async function analyticsTrackPageViews(document, additionalXdmFields = {}
  * @returns {Promise<void>}
  */
 export async function setupAnalyticsTrackingWithAlloy(document) {
-  createInlineScript(document, document.body, getAlloyInitScript(), 'text/javascript');
-
   // eslint-disable-next-line no-undef
   const configure = alloy('configure', getAlloyConfiguration(document));
 

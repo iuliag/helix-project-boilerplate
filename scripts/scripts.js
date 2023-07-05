@@ -15,7 +15,7 @@ import {
 } from './lib-franklin.js';
 import {
   analyticsTrackFormSubmission,
-  analyticsTrackLinkClicks,
+  analyticsTrackLinkClicks, createInlineScript, getAlloyInitScript,
   setupAnalyticsTrackingWithAlloy,
 } from './lib-analytics.js';
 
@@ -73,6 +73,7 @@ async function loadEager(doc) {
   decorateTemplateAndTheme();
   const main = doc.querySelector('main');
   if (main) {
+    createInlineScript(document, document.body, getAlloyInitScript(), 'text/javascript');
     decorateMain(main);
     document.body.classList.add('appear');
     await waitForLCP(LCP_BLOCKS);
