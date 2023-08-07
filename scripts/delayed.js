@@ -1,8 +1,28 @@
 // eslint-disable-next-line import/no-cycle
-import { loadScript, sampleRUM } from './lib-franklin.js';
+import { sampleRUM } from './lib-franklin.js';
 
 // Core Web Vitals RUM collection
 sampleRUM('cwv');
 
 // add more delayed functionality here
-await loadScript('https://assets.adobedtm.com///launch--development.min.js', { async: true });
+async function loadScript(src, parent, attrs) {
+  return new Promise((resolve, reject) => {
+    if (!document.querySelector(`${parent} > script[src="${src}"]`)) {
+      const script = document.createElement('script');
+      script.src = src;
+      if (attrs) {
+        // eslint-disable-next-line no-restricted-syntax, guard-for-in
+        for (const attr in attrs) {
+          script.setAttribute(attr, attrs[attr]);
+        }
+      }
+      script.onload = resolve;
+      script.onerror = reject;
+      document.head.append(script);
+    } else {
+      resolve();
+    }
+  });
+}
+
+await loadScript('https://assets.adobedtm.com/launch-development.min.js', 'body', { async: true });
