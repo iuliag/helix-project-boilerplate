@@ -12,6 +12,11 @@ import {
   loadBlocks,
   loadCSS,
 } from './lib-franklin.js';
+import {
+  loadLaunch,
+  loadAlloyInit,
+  analyticsTrackPageViews,
+} from './lib-analytics.js';
 
 const LCP_BLOCKS = []; // add your LCP blocks to the list
 
@@ -93,6 +98,14 @@ async function loadEager(doc) {
   }
 }
 
+function initPartytown() {
+  window.partytown = {
+    lib: '/scripts/',
+    forward: ['adobeDataLayer.push'],
+  };
+  import('./partytown.js');
+}
+
 /**
  * Loads everything that doesn't need to be delayed.
  * @param {Element} doc The container element
@@ -114,6 +127,25 @@ async function loadLazy(doc) {
   sampleRUM('lazy');
   sampleRUM.observe(main.querySelectorAll('div[data-block-name]'));
   sampleRUM.observe(main.querySelectorAll('picture > img'));
+
+  // loadLaunch(() => analyticsTrackPageViews(document));
+  loadLaunch();
+
+  initPartytown();
+
+  // faking a data layer change
+  window.adobeDataLayer.push({
+    event: 'Form Complete',
+    eventInfo: {
+      form: {
+        formId: '12345',
+      },
+      experiment: {
+        experimentId: 'pricing',
+        experimentVariant: 'challenger-1',
+      },
+    },
+  });
 }
 
 /**
