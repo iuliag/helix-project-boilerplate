@@ -11,7 +11,14 @@ import {
   waitForLCP,
   loadBlocks,
   loadCSS,
+  initConversionTracking,
 } from './lib-franklin.js';
+import {
+  analyticsTrackCWV,
+  analyticsTrackFormSubmission,
+  analyticsTrackLinkClicks, createInlineScript, getAlloyInitScript,
+  setupAnalyticsTrackingWithAlloy,
+} from './lib-analytics.js';
 
 const LCP_BLOCKS = []; // add your LCP blocks to the list
 
@@ -78,6 +85,7 @@ async function loadEager(doc) {
   decorateTemplateAndTheme();
   const main = doc.querySelector('main');
   if (main) {
+    createInlineScript(document, document.body, getAlloyInitScript(), 'text/javascript');
     decorateMain(main);
     document.body.classList.add('appear');
     await waitForLCP(LCP_BLOCKS);
@@ -105,7 +113,7 @@ async function loadLazy(doc) {
   const element = hash ? doc.getElementById(hash.substring(1)) : false;
   if (hash && element) element.scrollIntoView();
 
-  loadHeader(doc.querySelector('header'));
+  const headerLoaded = loadHeader(doc.querySelector('header'));
   loadFooter(doc.querySelector('footer'));
 
   loadCSS(`${window.hlx.codeBasePath}/styles/lazy-styles.css`);
@@ -114,6 +122,8 @@ async function loadLazy(doc) {
   sampleRUM('lazy');
   sampleRUM.observe(main.querySelectorAll('div[data-block-name]'));
   sampleRUM.observe(main.querySelectorAll('picture > img'));
+  await headerLoaded;
+  initConversionTracking(document);
 }
 
 /**
@@ -129,7 +139,139 @@ function loadDelayed() {
 async function loadPage() {
   await loadEager(document);
   await loadLazy(document);
+  const setupAnalytics = setupAnalyticsTrackingWithAlloy(document);
   loadDelayed();
+  await setupAnalytics;
 }
 
+let cwv = {};
+
+// Forward the RUM CWV cached measurements to edge using WebSDK before the page unloads
+window.addEventListener('beforeunload', () => {
+  if (Object.keys(cwv).length > 0) {
+    analyticsTrackCWV(cwv);
+  }
+});
+
+// Callback to RUM CWV checkpoint in order to cache the measurements
+sampleRUM.always.on('cwv', async (data) => {
+  if (data.cwv) {
+    cwv = {
+      ...cwv,
+      ...data.cwv,
+    };
+  }
+});
+
 loadPage();
+
+/**
+ * Registers the 'convert' function to `sampleRUM` which sends
+ * variant and convert events upon conversion.
+ * The function will register a listener for an element if listenTo parameter is provided.
+ * listenTo supports 'submit' and 'click'.
+ * If listenTo is not provided, the information is used to track a conversion event.
+ */
+sampleRUM.drain('convert', (cevent, cvalueThunk, element, listenTo = []) => {
+  async function trackConversion(celement) {
+    const MAX_SESSION_LENGTH = 1000 * 60 * 60 * 24 * 30; // 30 days
+    try {
+      // get all stored experiments from local storage (unified-decisioning-experiments)
+      const experiments = JSON.parse(localStorage.getItem('unified-decisioning-experiments'));
+      if (experiments) {
+        Object.entries(experiments)
+          .map(([experiment, { treatment, date }]) => ({ experiment, treatment, date }))
+          .filter(({ date }) => Date.now() - new Date(date) < MAX_SESSION_LENGTH)
+          .forEach(({ experiment, treatment }) => {
+            // send conversion event for each experiment that has been seen by this visitor
+            sampleRUM('variant', { source: experiment, target: treatment });
+          });
+      }
+      // send conversion event
+      const cvalue = typeof cvalueThunk === 'function' ? await cvalueThunk(element) : cvalueThunk;
+      sampleRUM('convert', { source: cevent, target: cvalue, element: celement });
+    } catch (e) {
+      // eslint-disable-next-line no-console
+      console.log('error reading experiments', e);
+    }
+  }
+
+  function registerConversionListener(elements) {
+    // if elements is an array or nodelist, register a conversion event for each element
+    if (Array.isArray(elements) || elements instanceof NodeList) {
+      elements.forEach((e) => registerConversionListener(e, listenTo, cevent, cvalueThunk));
+    } else {
+      listenTo.forEach((eventName) => element.addEventListener(
+        eventName,
+        (e) => trackConversion(e.target),
+      ));
+    }
+  }
+
+  if (element && listenTo.length) {
+    registerConversionListener(element, listenTo, cevent, cvalueThunk);
+  } else {
+    trackConversion(element, cevent, cvalueThunk);
+  }
+});
+
+// Declare conversionEvent, bufferTimeoutId and tempConversionEvent outside the convert function
+// to persist them for buffering between
+// subsequent convert calls
+let bufferTimeoutId;
+let conversionEvent;
+let tempConversionEvent;
+
+// call upon conversion events, pushes them to the datalayer
+// call upon conversion events, sends them to alloy
+sampleRUM.always.on('convert', async (data) => {
+  const { element } = data;
+  // eslint-disable-next-line no-undef
+  if (element && alloy) {
+    if (element.tagName === 'FORM') {
+      conversionEvent = {
+        event: 'Form Complete',
+        ...(data.source ? { conversionName: data.source } : {}),
+        ...(data.target ? { conversionValue: data.target } : {}),
+      };
+
+      if (conversionEvent.event === 'Form Complete' && (data.target === undefined || data.source === undefined)) {
+        // If a buffer has already been set and tempConversionEvent exists,
+        // merge the two conversionEvent objects to send to alloy
+        if (bufferTimeoutId !== undefined && tempConversionEvent !== undefined) {
+          conversionEvent = { ...tempConversionEvent, ...conversionEvent };
+        } else {
+          // Temporarily hold the conversionEvent object until the timeout is complete
+          tempConversionEvent = { ...conversionEvent };
+
+          // If there is partial form conversion data,
+          // set the timeout buffer to wait for additional data
+          bufferTimeoutId = setTimeout(async () => {
+            await analyticsTrackFormSubmission(element, {
+              conversion: {
+                ...(conversionEvent.conversionName ? { conversionName: `${conversionEvent.conversionName}` } : {}),
+                ...(conversionEvent.conversionValue ? { conversionValue: `${conversionEvent.conversionValue}` } : {}),
+              },
+            });
+            tempConversionEvent = undefined;
+            conversionEvent = undefined;
+          }, 100);
+        }
+      }
+    } else if (element.tagName === 'A') {
+      conversionEvent = {
+        event: 'Link Click',
+        ...(data.source ? { conversionName: data.source } : {}),
+        ...(data.target ? { conversionValue: data.target } : {}),
+      };
+      await analyticsTrackLinkClicks(element, 'other', {
+        conversion: {
+          ...(conversionEvent.conversionName ? { conversionName: `${conversionEvent.conversionName}` } : {}),
+          ...(conversionEvent.conversionValue ? { conversionValue: `${conversionEvent.conversionValue}` } : {}),
+        },
+      });
+      tempConversionEvent = undefined;
+      conversionEvent = undefined;
+    }
+  }
+});
